@@ -6,6 +6,8 @@ module Dota
   module Utilities
     class UpdateData
       DOTA_CONSTANTS_ITEMS_URL = 'https://raw.githubusercontent.com/odota/dotaconstants/master/build/items.json'.freeze
+      DOTA_ITEMS_LIST_URL      = 'https://www.dota2.com/datafeed/itemlist?language=English'.freeze
+
       HEROES_URL = 'https://api.opendota.com/api/heroes'.freeze
       ABILITY_IDS_URL = 'https://raw.githubusercontent.com/odota/dotaconstants/master/build/ability_ids.json'.freeze
       ABILITIES_URL = 'http://www.dota2.com/jsfeed/abilitydata'.freeze
@@ -15,22 +17,8 @@ module Dota
       ABILITIES_DATA_FILE = 'data/ability.yml'.freeze
 
       def self.call
-        # updating items
-        escaped_url = URI.escape(DOTA_CONSTANTS_ITEMS_URL)
-        uri = URI.parse(escaped_url)
-        res = Net::HTTP.get_response(uri)
-
-        if res.is_a?(Net::HTTPSuccess)
-          file_url = File.join(Dota.root, ITEMS_DATA_FILE)
-          items = YAML::load_file(file_url)
-          parsed = JSON.parse(res.body)
-          parsed.each do |item_name, attributes|
-            next if items.dig(attributes['id'])
-            items[attributes['id']] = [item_name, attributes['dname']]
-          end
-
-          File.open(file_url, 'w') { |f| f.write items.to_yaml }
-        end
+        # update_items_odota
+        update_items_dota
 
         # Updating heroes
 
@@ -88,6 +76,48 @@ module Dota
           end
 
           File.open(file_url, 'w') { |f| f.write abilities_yml.to_yaml }
+        end
+      end
+
+      private
+
+      # not updated for 7.30
+      def self.update_items_odota
+        escaped_url = URI.escape(DOTA_CONSTANTS_ITEMS_URL)
+        uri = URI.parse(escaped_url)
+        res = Net::HTTP.get_response(uri)
+
+        if res.is_a?(Net::HTTPSuccess)
+          file_url = File.join(Dota.root, ITEMS_DATA_FILE)
+          items = YAML::load_file(file_url)
+          parsed = JSON.parse(res.body)
+          parsed.each do |item_name, attributes|
+            next if items.dig(attributes['id'])
+            items[attributes['id']] = [item_name, attributes['dname']]
+          end
+
+          File.open(file_url, 'w') { |f| f.write items.to_yaml }
+        end
+      end
+
+      # copied from odota
+      def self.update_items_dota
+        escaped_url = URI.escape(DOTA_ITEMS_LIST_URL)
+        uri         = URI.parse(escaped_url)
+        res         = Net::HTTP.get_response(uri)
+
+        if res.is_a?(Net::HTTPSuccess)
+          file_url     = File.join(Dota.root, ITEMS_DATA_FILE)
+          items        = YAML::load_file(file_url)
+          parsed       = JSON.parse(res.body)
+          parsed_items = parsed.dig('result', 'data', 'itemabilities')
+
+          parsed_items.each do |item|
+            next if items.dig(item['id'])
+            items[item['id']] = [item['name'], item['name_loc']]
+          end
+
+          File.open(file_url, 'w') { |f| f.write items.to_yaml }
         end
       end
     end
