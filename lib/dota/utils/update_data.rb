@@ -114,7 +114,9 @@ module Dota
 
           parsed_items.each do |item|
             next if items.dig(item['id'])
-            items[item['id']] = [item['name'], item['name_loc']]
+
+            item_name = item['name'].sub(/\Aitem_/, '')
+            items[item['id']] = [item_name, item['name_loc']]
           end
 
           File.open(file_url, 'w') { |f| f.write items.to_yaml }
